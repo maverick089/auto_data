@@ -47,7 +47,11 @@ class FileGenerator {
       buffer.writeln(c.documentationComment);
     }
     buffer.writeln('@immutable');
-    buffer.writeln('class ${c.name} {');
+    buffer.write('class ${c.name}');
+    if (c.interface != null) {
+      buffer.write(' implements ${c.interface}');
+    }
+    buffer.write(' {\n');
     return buffer;
   }
 
@@ -61,7 +65,10 @@ class FileGenerator {
       if (p.documentationComment != null) {
         buffer.writeln(p.documentationComment);
       }
-      buffer.write('final ${p.type} ${p.name};\n');
+      if (p.isInterface) {
+        buffer.writeln('@override');
+      }
+      buffer.writeln('final ${p.type} ${p.name};');
     });
     return buffer;
   }
@@ -252,7 +259,8 @@ class FileGenerator {
           buffer.write('key: (m) => $key, value: (m) => $converter)');
           return buffer.toString();
         } else {
-          throw Exception('No type specified for List. Are you sure you imported necessary data models?');
+          throw Exception(
+              'No type specified for List. Are you sure you imported necessary data models?');
         }
       } else if (isEnum) {
         return '$name.index';
@@ -280,7 +288,8 @@ class FileGenerator {
 
   static StringBuffer _generateFromJson(DataClass c) {
     final buffer = new StringBuffer();
-    buffer.writeln('factory ${c.name}.fromJson(String json) => ${c.name}.fromMap(jsonDecode(json));');
+    buffer.writeln(
+        'factory ${c.name}.fromJson(String json) => ${c.name}.fromMap(jsonDecode(json));');
     return buffer;
   }
 

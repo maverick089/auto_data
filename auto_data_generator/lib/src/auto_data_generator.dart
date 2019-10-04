@@ -9,6 +9,7 @@ Builder autoData(BuilderOptions _) =>
 
 class DataClass {
   final String name;
+  final String interface;
   final List<DataClassProperty> props;
   final List<DataClassConstructor> constructors;
   final List<FieldElement> fieldElements;
@@ -17,6 +18,7 @@ class DataClass {
 
   DataClass(
     this.name,
+    this.interface,
     this.props,
     this.constructors,
     this.fieldElements,
@@ -37,6 +39,7 @@ class DataClassProperty {
   final String type;
   final bool isNullable;
   final bool isEnum;
+  final bool isInterface;
   final String assignmentString;
   final String documentationComment;
 
@@ -44,7 +47,8 @@ class DataClassProperty {
     this.name,
     this.type,
     this.isNullable,
-    this.isEnum, [
+    this.isEnum,
+    this.isInterface, [
     this.assignmentString,
     this.documentationComment,
   ]);
@@ -58,9 +62,11 @@ class AutoDataGenerator extends Generator {
     final classes = List<DataClass>();
     library.annotatedWith(TypeChecker.fromRuntime(Data)).forEach((e) {
       final visitor = DataElementVisitor(library);
+      e.element.accept(visitor);
       e.element.visitChildren(visitor);
       final c = DataClass(
         e.element.name.substring(1),
+        visitor.interface,
         visitor.props,
         visitor.constructors,
         visitor.fieldElements,
@@ -81,6 +87,7 @@ class AutoDataGenerator extends Generator {
 }
 
 class DataElementVisitor<T> extends SimpleElementVisitor<T> {
+  String interface;
   final List<DataClassProperty> props = [];
   final List<DataClassConstructor> constructors = [];
   final List<FieldElement> fieldElements = [];
@@ -91,8 +98,24 @@ class DataElementVisitor<T> extends SimpleElementVisitor<T> {
   DataElementVisitor(this.library);
 
   @override
+  T visitClassElement(ClassElement element) {
+    if (element.interfaces.isNotEmpty) {
+      interface = element.interfaces.first.name;
+      element.interfaces.forEach(
+        (interface) => _parseInterfaceElement(interface.element),
+      );
+    }
+  }
+
+  _parseInterfaceElement(ClassElement element) {
+    element.fields.forEach(
+      (field) => props.add(_parseFieldElement(field, true)),
+    );
+  }
+
+  @override
   T visitFieldElement(FieldElement element) {
-    props.add(_parseFieldElement(element));
+    props.add(_parseFieldElement(element, false));
     fieldElements.add(element);
   }
 
@@ -101,7 +124,7 @@ class DataElementVisitor<T> extends SimpleElementVisitor<T> {
     final parsedLibrary =
         element.session.getParsedLibraryByElement(element.library);
     final declaration = parsedLibrary.getElementDeclaration(element);
-    if (declaration != null) {
+    if (declaration != null && declaration.node != null) {
       var s = declaration.node.toSource();
       s = s.startsWith('\$') ? s.substring(1) : s;
       constructors.add(DataClassConstructor(s, element.documentationComment));
@@ -109,7 +132,7 @@ class DataElementVisitor<T> extends SimpleElementVisitor<T> {
     }
   }
 
-  DataClassProperty _parseFieldElement(FieldElement element) {
+  DataClassProperty _parseFieldElement(FieldElement element, bool isInterface) {
     final parsedLibrary =
         element.session.getParsedLibraryByElement(element.library);
     final declaration = parsedLibrary.getElementDeclaration(element);
@@ -119,12 +142,17 @@ class DataElementVisitor<T> extends SimpleElementVisitor<T> {
     final comment = element.documentationComment;
     final isNullable = element.metadata.any((a) => a.toSource() == '@nullable');
     final isEnum = ee?.isEnum ?? false;
-    var assignmentString = declaration.node.toSource();
-    assignmentString = assignmentString.substring(name.length);
-    if (assignmentString.length <= 0) {
-      assignmentString = null;
+
+    String assignmentString;
+    if (declaration != null && declaration.node != null) {
+      assignmentString = declaration.node.toSource();
+      assignmentString = assignmentString.substring(name.length);
+      if (assignmentString.length <= 0) {
+        assignmentString = null;
+      }
     }
+
     return DataClassProperty(
-        name, type, isNullable, isEnum, assignmentString, comment);
+        name, type, isNullable, isEnum, isInterface, assignmentString, comment);
   }
 }
