@@ -60,6 +60,42 @@ abstract class \$Value implements InterfaceClass {
             contains('  final String interfaceProperty;\n'),
           ]));
     });
+
+    test(
+        'implements interfaces and overrrides properties of inherited interfaces',
+        () async {
+      expect(
+          await generate(
+            '''
+import 'package:meta/meta.dart';
+import 'package:auto_data/auto_data.dart';
+import 'dart:convert';
+
+part 'value.g.dart';
+
+abstract class InterfaceClass1 {
+  String get interfaceProperty1;
+}
+
+abstract class InterfaceClass2 implements InterfaceClass1 {
+  String get interfaceProperty2;
+}
+
+@data
+abstract class \$Value implements InterfaceClass2 {
+  double x;
+  double y;
+}
+''',
+          ),
+          allOf([
+            contains('class Value implements InterfaceClass2 {'),
+            contains('  final double x;\n'),
+            contains('  final double y;\n'),
+            contains('  final String interfaceProperty1;\n'),
+            contains('  final String interfaceProperty2;\n'),
+          ]));
+    });
   });
 }
 

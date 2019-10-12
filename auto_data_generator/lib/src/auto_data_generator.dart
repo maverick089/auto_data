@@ -108,6 +108,11 @@ class DataElementVisitor<T> extends SimpleElementVisitor<T> {
   }
 
   _parseInterfaceElement(ClassElement element) {
+    if (element.interfaces.isNotEmpty) {
+      element.interfaces.forEach(
+        (interface) => _parseInterfaceElement(interface.element),
+      );
+    }
     element.fields.forEach(
       (field) => props.add(_parseFieldElement(field, true)),
     );
